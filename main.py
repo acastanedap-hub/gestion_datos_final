@@ -77,6 +77,10 @@ def subir_datos():
 
     print(f"Importación completada")
 
-#crear_esquema()
-#crear_tabla()
-subir_datos()
+def main():
+    crear_esquema()
+    crear_tabla()
+    subir_datos()
+
+if __name__ == "__main__":
+    main()
