@@ -8,3 +8,4 @@ __pycache__/
 .Rhistory
 rsconnect/
 .Rproj.user/
+version_anterior.R
