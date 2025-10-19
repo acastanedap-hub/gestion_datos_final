@@ -46,10 +46,6 @@ ui <- dashboardPage(
     sliderInput("obs_limit", "Límite de observaciones:",
                 min = 1000, max = 5000, value = 1000, step = 500),
     
-    selectInput("color_theme", "Tema de colores:",
-                choices = c("Azul" = "blue", "Verde" = "green", "Rojo" = "red", "Morado" = "purple"),
-                selected = "blue"),
-    
     actionButton("actualizar", "🔄 Actualizar Análisis", 
                  style = "background-color: #367fa9; color: white; margin: 15px; width: 90%;")
   ),
