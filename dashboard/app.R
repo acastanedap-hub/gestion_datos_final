@@ -9,6 +9,8 @@ library(tidyr)
 library(naniar)
 library(VIM)
 library(corrplot)
+library(mice)
+library(caret)
 
 readRenviron(".Renviron")
 
@@ -44,6 +46,10 @@ ui <- dashboardPage(
     sliderInput("obs_limit", "Límite de observaciones:",
                 min = 1000, max = 5000, value = 1000, step = 500),
     
+    selectInput("color_theme", "Tema de colores:",
+                choices = c("Azul" = "blue", "Verde" = "green", "Rojo" = "red", "Morado" = "purple"),
+                selected = "blue"),
+    
     actionButton("actualizar", "🔄 Actualizar Análisis", 
                  style = "background-color: #367fa9; color: white; margin: 15px; width: 90%;")
   ),
@@ -68,7 +74,7 @@ ui <- dashboardPage(
                   tags$ul(
                     tags$li("🔍 Análisis básico de valores faltantes"),
                     tags$li("🗺️ Mapa de calor de valores faltantes"),
-                    tags$li("📊 Análisis avanzado e imputación de missing values"),
+                    tags$li("📊 Análisis avanzado e imputación con MICE"),
                     tags$li("📈 Matrices de correlación entre variables numéricas"),
                     tags$li("📋 Exploración completa del dataset")
                   ),
@@ -210,18 +216,28 @@ ui <- dashboardPage(
               
               fluidRow(
                 box(
-                  title = "Imputación de Valores Faltantes",
+                  title = "Comparación Antes/Después Imputación MICE",
                   status = "warning",
                   solidHeader = TRUE,
                   width = 6,
-                  plotOutput("histograma_imputacion", height = "400px")
+                  plotOutput("comparacion_imputacion", height = "400px")
                 ),
                 
                 box(
-                  title = "Información de Imputación",
+                  title = "Análisis de Outliers (IQR)",
                   status = "warning",
                   solidHeader = TRUE,
                   width = 6,
+                  plotOutput("grafico_outliers", height = "400px")
+                )
+              ),
+              
+              fluidRow(
+                box(
+                  title = "Información de Imputación MICE",
+                  status = "info",
+                  solidHeader = TRUE,
+                  width = 12,
                   uiOutput("info_imputacion")
                 )
               )
@@ -331,13 +347,14 @@ ui <- dashboardPage(
                     tags$li("R + Shiny para la interactividad"),
                     tags$li("Amazon RDS para la base de datos"),
                     tags$li("MySQL como motor de base de datos"),
-                    tags$li("Paquetes de visualización: ggplot2, naniar, corrplot")
+                    tags$li("Paquetes de visualización: ggplot2, naniar, corrplot, mice")
                   ),
                   h4("Funcionalidades:"),
                   tags$ul(
                     tags$li("Análisis básico y avanzado de valores faltantes"),
                     tags$li("Mapa de calor de missing values"),
-                    tags$li("Análisis de patrones e imputación"),
+                    tags$li("Análisis de patrones e imputación con MICE"),
+                    tags$li("Detección de outliers con método IQR"),
                     tags$li("Matrices de correlación"),
                     tags$li("Exploración interactiva del dataset")
                   )
@@ -538,7 +555,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # Datos para análisis avanzado con validación
+  # Datos para análisis avanzado con validación - MODIFICADO CON MICE
   datos_avanzados <- eventReactive(input$analizar_vars, {
     req(input$var_missing, input$var_comparacion)
     
@@ -562,17 +579,52 @@ server <- function(input, output, session) {
     df <- df %>%
       mutate(missing_indicator = missing_indicator)
     
-    # Imputar valores faltantes con la media
-    var_imputed <- paste0(var_missing, "_imputed")
-    df[[var_imputed]] <- ifelse(is.na(df[[var_missing]]), 
-                                mean(df[[var_missing]], na.rm = TRUE), 
-                                df[[var_missing]])
+    # IMPUTACIÓN CON MICE (Predictive Mean Matching)
+    # Seleccionar columnas para imputación
+    cols_imputacion <- c(var_missing, var_comparacion)
+    df_impute <- df %>% select(all_of(cols_imputacion))
+    
+    # Realizar imputación MICE
+    imputed_data <- mice(df_impute, m = 5, method = 'pmm', seed = 123, printFlag = FALSE)
+    
+    # Usar el primer dataset imputado
+    df_imputed_complete <- complete(imputed_data, 1)
+    
+    # Agregar la columna imputada al dataframe original
+    var_imputed <- paste0(var_missing, "_imputed_mice")
+    df[[var_imputed]] <- df_imputed_complete[[var_missing]]
+    
+    # ANÁLISIS DE OUTLIERS
+    # Función para detectar outliers usando IQR
+    detect_outliers_iqr <- function(x) {
+      q1 <- quantile(x, 0.25, na.rm = TRUE)
+      q3 <- quantile(x, 0.75, na.rm = TRUE)
+      iqr <- q3 - q1
+      lower_bound <- q1 - 1.5 * iqr
+      upper_bound <- q3 + 1.5 * iqr
+      outliers <- x[x < lower_bound | x > upper_bound]
+      return(outliers)
+    }
+    
+    # Aplicar detección de outliers a las columnas cant_trx_m*
+    cant_trx_cols <- df %>% select(starts_with("cant_trx_m"))
+    outliers_list <- lapply(cant_trx_cols, detect_outliers_iqr)
+    
+    # Crear dataframe para gráfico de outliers
+    outlier_counts_df <- data.frame(
+      Variable = names(outliers_list),
+      Outlier_Count = sapply(outliers_list, length)
+    )
     
     list(
       data = df,
       var_missing = var_missing,
       var_comparacion = var_comparacion,
-      var_imputed = var_imputed
+      var_imputed = var_imputed,
+      imputed_data = imputed_data,
+      outlier_counts = outlier_counts_df,
+      missing_before = sum(is.na(df_impute[[var_missing]])),
+      missing_after = sum(is.na(df_imputed_complete[[var_missing]]))
     )
   })
   
@@ -751,7 +803,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # Boxplot para análisis de missing patterns
+  # Boxplot para análisis de missing patterns - MODIFICADO
   output$boxplot_missing_analysis <- renderPlot({
     datos <- datos_avanzados()
     if(!is.null(datos)) {
@@ -840,32 +892,27 @@ server <- function(input, output, session) {
     }
   })
   
-  # Histograma de imputación
-  output$histograma_imputacion <- renderPlot({
+  # Comparación antes/después de imputación MICE - NUEVO GRÁFICO
+  output$comparacion_imputacion <- renderPlot({
     datos <- datos_avanzados()
     if(!is.null(datos)) {
-      df <- datos$data
-      var_missing <- datos$var_missing
-      var_imputed <- datos$var_imputed
-      
-      # Preparar datos para histograma comparativo
-      hist_data <- data.frame(
-        valor = c(df[[var_missing]], df[[var_imputed]]),
-        tipo = rep(c("Original (con NA)", "Imputado"), 
-                   c(length(df[[var_missing]]), length(df[[var_imputed]])))
+      # Crear datos para comparación
+      missing_counts <- data.frame(
+        Imputation_Status = c("Antes de Imputación", "Después de Imputación"),
+        Missing_Count = c(datos$missing_before, datos$missing_after)
       )
       
-      ggplot(hist_data, aes(x = valor, fill = tipo)) +
-        geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
-        labs(title = paste("Comparación: Original vs Imputado -", var_missing),
-             subtitle = paste("Basado en", nrow(df), "observaciones"),
-             x = var_missing,
-             y = "Frecuencia",
-             fill = "Dataset") +
-        scale_fill_manual(values = c("Original (con NA)" = "skyblue", "Imputado" = "salmon")) +
+      ggplot(missing_counts, aes(x = Imputation_Status, y = Missing_Count, fill = Imputation_Status)) +
+        geom_bar(stat = "identity", alpha = 0.8) +
+        geom_text(aes(label = Missing_Count), vjust = -0.5, size = 5, fontface = "bold") +
+        labs(title = paste("Valores Faltantes en", datos$var_missing),
+             subtitle = "Comparación Antes/Después de Imputación MICE",
+             x = "Estado de Imputación",
+             y = "Número de Valores Faltantes") +
+        scale_fill_manual(values = c("Antes de Imputación" = "#ff6b6b", "Después de Imputación" = "#00a65a")) +
         theme_minimal() +
         theme(plot.title = element_text(hjust = 0.5, face = "bold"),
-              legend.position = "bottom")
+              legend.position = "none")
     } else {
       ggplot() + 
         annotate("text", x = 1, y = 1, 
@@ -875,7 +922,31 @@ server <- function(input, output, session) {
     }
   })
   
-  # Información de imputación
+  # Gráfico de outliers - NUEVO
+  output$grafico_outliers <- renderPlot({
+    datos <- datos_avanzados()
+    if(!is.null(datos)) {
+      ggplot(datos$outlier_counts, aes(x = Variable, y = Outlier_Count, fill = Variable)) +
+        geom_bar(stat = "identity", alpha = 0.8) +
+        geom_text(aes(label = Outlier_Count), vjust = -0.5, size = 4, fontface = "bold") +
+        labs(title = "Número de Outliers en Variables cant_trx_m*",
+             subtitle = "Método IQR (1.5 * IQR)",
+             x = "Variable",
+             y = "Número de Outliers") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1),
+              plot.title = element_text(hjust = 0.5, face = "bold"),
+              legend.position = "none")
+    } else {
+      ggplot() + 
+        annotate("text", x = 1, y = 1, 
+                 label = "Seleccione variables válidas para el análisis", 
+                 size = 6, fontface = "bold", color = "red") +
+        theme_void()
+    }
+  })
+  
+  # Información de imputación MICE - MODIFICADO
   output$info_imputacion <- renderUI({
     datos <- datos_avanzados()
     if(!is.null(datos)) {
@@ -883,23 +954,34 @@ server <- function(input, output, session) {
       var_missing <- datos$var_missing
       var_imputed <- datos$var_imputed
       
-      num_missing <- sum(is.na(df[[var_missing]]))
-      percent_missing <- round(num_missing / nrow(df) * 100, 2)
+      num_missing_before <- datos$missing_before
+      num_missing_after <- datos$missing_after
+      percent_reduction <- round((num_missing_before - num_missing_after) / num_missing_before * 100, 2)
+      
       mean_imputed <- mean(df[[var_imputed]], na.rm = TRUE)
       mean_original <- mean(df[[var_missing]], na.rm = TRUE)
       
+      # Información de outliers
+      total_outliers <- sum(datos$outlier_counts$Outlier_Count)
+      max_outliers_var <- datos$outlier_counts$Variable[which.max(datos$outlier_counts$Outlier_Count)]
+      max_outliers_count <- max(datos$outlier_counts$Outlier_Count)
+      
       tagList(
-        h4("Resumen de Imputación:"),
-        p(strong("Variable:"), var_missing),
-        p(strong("Observaciones totales:"), nrow(df)),
-        p(strong("Valores faltantes:"), paste0(num_missing, " (", percent_missing, "%)")),
+        h4("Resumen de Imputación MICE:"),
+        p(strong("Variable imputada:"), var_missing),
+        p(strong("Valores faltantes antes:"), num_missing_before),
+        p(strong("Valores faltantes después:"), num_missing_after),
+        p(strong("Reducción de missing values:"), paste0(percent_reduction, "%")),
         p(strong("Media original:"), round(mean_original, 4)),
         p(strong("Media después de imputación:"), round(mean_imputed, 4)),
         hr(),
+        h4("Análisis de Outliers:"),
+        p(strong("Total de outliers detectados:"), total_outliers),
+        p(strong("Variable con más outliers:"), paste0(max_outliers_var, " (", max_outliers_count, " outliers)")),
+        hr(),
         h4("Método de Imputación:"),
-        p("Se utilizó la media para imputar los valores faltantes."),
-        p("Fórmula:"),
-        p(code(paste0("ifelse(is.na(", var_missing, "), mean(", var_missing, ", na.rm = TRUE), ", var_missing, ")")))
+        p("Se utilizó MICE (Multiple Imputation by Chained Equations) con PMM (Predictive Mean Matching)."),
+        p("Parámetros: m = 5 (5 datasets imputados), method = 'pmm', seed = 123")
       )
     } else {
       tags$div(

@@ -9,3 +9,4 @@ __pycache__/
 rsconnect/
 .Rproj.user/
 version_anterior.R
+dashboard/dashboard.Rproj
