@@ -1,0 +1,205 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f4f4;
+}
+
+/* Header personalizado */
+.skin-blue .main-header .logo {
+  background-color: #2c3e50;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.skin-blue .main-header .logo:hover {
+  background-color: #2c3e50;
+}
+
+.skin-blue .main-header .navbar {
+  background-color: #34495e;
+}
+
+/* Sidebar personalizado */
+.skin-blue .main-sidebar {
+  background-color: #2c3e50;
+}
+
+.skin-blue .sidebar-menu > li > a {
+  border-left: 3px solid transparent;
+  font-size: 14px;
+  padding: 12px 15px;
+}
+
+.skin-blue .sidebar-menu > li:hover > a,
+.skin-blue .sidebar-menu > li.active > a {
+  border-left-color: #3498db;
+  background-color: #34495e;
+}
+
+/* Boxes personalizados */
+.box {
+  border-top: 3px solid #3498db;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.box-header {
+  background-color: #f8f9fa !important;
+  border-bottom: 1px solid #e3e6f0;
+}
+
+.box-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #2c3e50;
+}
+
+/* Value boxes personalizados */
+.bg-blue {
+  background-color: #3498db !important;
+}
+
+.bg-green {
+  background-color: #27ae60 !important;
+}
+
+.bg-yellow {
+  background-color: #f39c12 !important;
+}
+
+.bg-red {
+  background-color: #e74c3c !important;
+}
+
+/* Botones personalizados */
+.btn {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background-color: #3498db;
+  border-color: #2980b9;
+}
+
+.btn-primary:hover {
+  background-color: #2980b9;
+  border-color: #2471a3;
+}
+
+/* Tablas personalizadas */
+.table {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: #f8f9fa;
+}
+
+.table-hover > tbody > tr:hover {
+  background-color: #e3f2fd;
+}
+
+/* Gráficos centrados */
+.shiny-plot-output {
+  margin: 0 auto;
+  display: block;
+}
+
+.plot-container {
+  text-align: center;
+}
+
+/* Títulos centrados */
+.centered-title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.centered-title h1 {
+  color: #2c3e50;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.centered-title p {
+  color: #7f8c8d;
+  font-size: 16px;
+}
+
+/* Mejoras para los gráficos */
+.gg-miss-var {
+  text-align: center;
+}
+
+.visMiss {
+  margin: 0 auto;
+}
+
+.corrplot {
+  margin: 0 auto;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .box {
+    margin-bottom: 15px;
+  }
+  
+  .skin-blue .main-header .logo {
+    font-size: 16px;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Loading spinner customization */
+.shiny-spinner-output-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.skin-blue .content-wrapper {
+  background-color: #ecf0f5;
+}
+
+/* Mejora para las pestañas */
+.nav-tabs-custom > .nav-tabs > li.active {
+  border-top-color: #3498db;
+}
+
+/* Estilos para los value boxes */
+.small-box {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.small-box .icon {
+  font-size: 70px;
+  top: 10px;
+}
+
+.small-box h3 {
+  font-weight: 700;
+  font-size: 32px;
+}
+
+.small-box p {
+  font-size: 16px;
+}

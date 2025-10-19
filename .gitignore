@@ -1,0 +1,10 @@
+.env
+codigo_sebas.R
+venv
+__pycache__/
+*.pyc
+.DS_Store
+.Renviron
+.Rhistory
+rsconnect/
+.Rproj.user/
